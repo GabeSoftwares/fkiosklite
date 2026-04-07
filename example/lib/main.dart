@@ -73,6 +73,14 @@ class _MyAppState extends State<MyApp> {
     await _checkStatus();
   }
 
+  Future<void> _rebootDevice() async {
+    await _kioskPlugin.rebootDevice();
+  }
+
+  Future<void> _shutdownDevice() async {
+    await _kioskPlugin.shutdownDevice();
+  }
+
   Future<void> _installFromUrl() async {
     const url = 'https://example.com/app-release.apk';
     await _updatePlugin.installFromUrl(url);
@@ -103,6 +111,16 @@ class _MyAppState extends State<MyApp> {
               ElevatedButton(
                 onPressed: _isDeviceOwner ? _installFromUrl : null,
                 child: const Text('Install APK from URL'),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _isDeviceOwner ? _rebootDevice : null,
+                child: const Text('Reboot Device'),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _isDeviceOwner ? _shutdownDevice : null,
+                child: const Text('Shutdown Device'),
               ),
               const SizedBox(height: 12),
               ElevatedButton(

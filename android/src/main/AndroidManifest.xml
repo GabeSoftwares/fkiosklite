@@ -29,6 +29,16 @@
             android:launchMode="singleTask"
             android:exported="true" />
 
+        <!-- Boot receiver — auto-starts the app on device power-on -->
+        <receiver
+            android:name=".boot.BootReceiver"
+            android:exported="true"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Install status BroadcastReceiver -->
         <receiver
             android:name=".update.UpdateReceiver"

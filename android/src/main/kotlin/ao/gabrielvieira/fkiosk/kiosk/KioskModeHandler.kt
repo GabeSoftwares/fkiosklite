@@ -5,6 +5,8 @@ import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -71,8 +73,49 @@ class KioskModeHandler(
                 result.success(null)
             }
 
+            "rebootDevice" -> {
+                try {
+                    rebootDevice()
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("REBOOT_ERROR", e.message, null)
+                }
+            }
+
+            "shutdownDevice" -> {
+                try {
+                    shutdownDevice()
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("SHUTDOWN_ERROR", e.message, null)
+                }
+            }
+
+            "enableAutoStart" -> {
+                setAutoStart(currentActivity!!, true)
+                result.success(null)
+            }
+
+            "disableAutoStart" -> {
+                setAutoStart(currentActivity!!, false)
+                result.success(null)
+            }
+
             else -> result.notImplemented()
         }
+    }
+
+    private fun setAutoStart(context: Context, enabled: Boolean) {
+        val component = ComponentName(
+            context.packageName,
+            "ao.gabrielvieira.fkiosk.boot.BootReceiver"
+        )
+        context.packageManager.setComponentEnabledSetting(
+            component,
+            if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP
+        )
     }
 
     private fun enableKiosk(config: Map<String, Any>?) {
@@ -98,6 +141,28 @@ class KioskModeHandler(
     private fun disableKiosk() {
         activity?.stopLockTask()
         eventSink?.success(false)
+    }
+
+    private fun rebootDevice() {
+        if (!dpm.isDeviceOwnerApp(activity!!.packageName)) {
+            throw IllegalStateException("App is not Device Owner")
+        }
+        dpm.reboot(adminComponent)
+    }
+
+    private fun shutdownDevice() {
+        if (!dpm.isDeviceOwnerApp(activity!!.packageName)) {
+            throw IllegalStateException("App is not Device Owner")
+        }
+        try {
+            Runtime.getRuntime().exec(arrayOf("/system/bin/reboot", "-p"))
+        } catch (e: Exception) {
+            val intent = Intent("com.android.internal.intent.action.REQUEST_SHUTDOWN").apply {
+                putExtra("android.intent.extra.KEY_CONFIRM", false)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            activity!!.startActivity(intent)
+        }
     }
 
     private fun setFeatures(featureValues: List<Int>) {

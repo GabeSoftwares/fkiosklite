@@ -40,6 +40,26 @@ class KioskModePlugin {
     );
   }
 
+  /// Reboot the device. Requires Device Owner privileges.
+  Future<void> rebootDevice() async {
+    await _channel.invokeMethod('rebootDevice');
+  }
+
+  /// Shut down the device. Requires Device Owner privileges.
+  Future<void> shutdownDevice() async {
+    await _channel.invokeMethod('shutdownDevice');
+  }
+
+  /// Enable auto-start on boot. Requires Device Owner privileges.
+  Future<void> enableAutoStart() async {
+    await _channel.invokeMethod('enableAutoStart');
+  }
+
+  /// Disable auto-start on boot.
+  Future<void> disableAutoStart() async {
+    await _channel.invokeMethod('disableAutoStart');
+  }
+
   /// Stream of kiosk mode state changes.
   Stream<bool> get onKioskModeChanged {
     return const EventChannel('ao.gabrielvieira.fkiosk/kiosk_mode_events')
