@@ -1,6 +1,7 @@
 /// Information about an available update.
 class UpdateInfo {
   final String version;
+  final int versionCode;
   final String downloadUrl;
   final int fileSize;
   final String checksum;
@@ -8,22 +9,25 @@ class UpdateInfo {
 
   const UpdateInfo({
     required this.version,
+    this.versionCode = 0,
     required this.downloadUrl,
-    required this.fileSize,
-    required this.checksum,
+    this.fileSize = 0,
+    this.checksum = '',
     this.mandatory = false,
   });
 
   factory UpdateInfo.fromMap(Map<String, dynamic> map) => UpdateInfo(
-        version: map['version'] as String,
-        downloadUrl: map['downloadUrl'] as String,
-        fileSize: map['fileSize'] as int,
-        checksum: map['checksum'] as String,
+        version: map['version'] as String? ?? '',
+        versionCode: (map['versionCode'] as num?)?.toInt() ?? 0,
+        downloadUrl: map['downloadUrl'] as String? ?? '',
+        fileSize: (map['fileSize'] as num?)?.toInt() ?? 0,
+        checksum: map['checksum'] as String? ?? '',
         mandatory: map['mandatory'] as bool? ?? false,
       );
 
   Map<String, dynamic> toMap() => {
         'version': version,
+        'versionCode': versionCode,
         'downloadUrl': downloadUrl,
         'fileSize': fileSize,
         'checksum': checksum,

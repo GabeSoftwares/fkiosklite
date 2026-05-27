@@ -12,15 +12,8 @@ class AdminReceiver : DeviceAdminReceiver() {
     override fun onEnabled(context: Context, intent: Intent) {
         super.onEnabled(context, intent)
         Log.d(TAG, "Device admin enabled")
-    }
-
-    override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
-        val manager = context.getSystemService(Context.DEVICE_POLICY_SERVICE)
-            as DevicePolicyManager
-        val componentName = getComponentName(context)
-
-        manager.setProfileName(componentName, "Kiosk Device")
-        manager.setProfileEnabled(componentName)
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        DevicePolicyHelper(context, dpm, getComponentName(context)).applySecurityPolicies()
     }
 
     companion object {

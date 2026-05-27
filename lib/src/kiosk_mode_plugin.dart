@@ -60,6 +60,32 @@ class KioskModePlugin {
     await _channel.invokeMethod('disableAutoStart');
   }
 
+  /// Silently uninstall an app by package name. Requires Device Owner.
+  Future<void> uninstallApp(String packageName) async {
+    await _channel.invokeMethod('uninstallApp', {'packageName': packageName});
+  }
+
+  /// Hide or show an app. Requires Device Owner.
+  ///
+  /// Hidden apps are not visible to the user but remain installed.
+  Future<bool> setAppHidden(String packageName, {bool hidden = true}) async {
+    return await _channel.invokeMethod<bool>('setAppHidden', {
+          'packageName': packageName,
+          'hidden': hidden,
+        }) ??
+        false;
+  }
+
+  /// Factory reset the device. Requires Device Owner. IRREVERSIBLE.
+  Future<void> wipeData() async {
+    await _channel.invokeMethod('wipeData');
+  }
+
+  /// Remove this app's Device Owner status. Disables all MDM features.
+  Future<void> clearDeviceOwner() async {
+    await _channel.invokeMethod('clearDeviceOwner');
+  }
+
   /// Stream of kiosk mode state changes.
   Stream<bool> get onKioskModeChanged {
     return const EventChannel('ao.gabrielvieira.fkiosk/kiosk_mode_events')

@@ -20,12 +20,13 @@ class DevicePolicyHelper(
     fun applySecurityPolicies() {
         if (!isDeviceOwner()) return
 
-        dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES)
+        // Keep USB debugging available so the device owner can update the app via ADB.
+        // Silent install via PackageInstaller (Device Owner) is the intended update path —
+        // DISALLOW_INSTALL_UNKNOWN_SOURCES is not needed and blocks recovery when silent
+        // install hasn't been wired up yet.
         dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_FACTORY_RESET)
         dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_SAFE_BOOT)
         dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_ADD_USER)
-        dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
-        dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_USB_FILE_TRANSFER)
 
         dpm.addPersistentPreferredActivity(
             adminComponent,

@@ -152,10 +152,29 @@ class SilentUpdateHandler(
             throw Exception("Download failed with HTTP ${response.code}")
         }
 
+        val contentLength = response.body?.contentLength() ?: -1L
         val apkFile = File(context.cacheDir, "update.apk")
+        val buffer = ByteArray(8 * 1024)
+        var bytesRead = 0L
+
         response.body?.byteStream()?.use { input ->
             apkFile.outputStream().use { output ->
-                input.copyTo(output)
+                var bytes = input.read(buffer)
+                while (bytes >= 0) {
+                    output.write(buffer, 0, bytes)
+                    bytesRead += bytes
+                    if (contentLength > 0) {
+                        UpdateEventEmitter.send(
+                            mapOf(
+                                "sessionId" to -1,
+                                "state" to "downloading",
+                                "progress" to bytesRead.toDouble() / contentLength.toDouble(),
+                                "error" to null,
+                            )
+                        )
+                    }
+                    bytes = input.read(buffer)
+                }
             }
         } ?: throw Exception("Empty response body")
 
@@ -172,25 +191,14 @@ class SilentUpdateHandler(
     }
 
     private fun parseJsonToMap(json: String): Map<String, Any?> {
-        val map = mutableMapOf<String, Any?>()
-        val trimmed = json.trim().removeSurrounding("{", "}")
-        if (trimmed.isBlank()) return map
-
-        for (pair in trimmed.split(",")) {
-            val parts = pair.split(":", limit = 2)
-            if (parts.size == 2) {
-                val key = parts[0].trim().removeSurrounding("\"")
-                val rawValue = parts[1].trim()
-                map[key] = when {
-                    rawValue == "null" -> null
-                    rawValue == "true" -> true
-                    rawValue == "false" -> false
-                    rawValue.startsWith("\"") -> rawValue.removeSurrounding("\"")
-                    rawValue.contains(".") -> rawValue.toDoubleOrNull() ?: rawValue
-                    else -> rawValue.toIntOrNull() ?: rawValue
-                }
+        val obj = org.json.JSONObject(json)
+        return obj.keys().asSequence().associateWith { key ->
+            when (val value = obj.get(key)) {
+                org.json.JSONObject.NULL -> null
+                is org.json.JSONObject -> value.toString()
+                is org.json.JSONArray -> value.toString()
+                else -> value
             }
         }
-        return map
     }
 }

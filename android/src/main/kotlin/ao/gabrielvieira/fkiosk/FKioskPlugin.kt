@@ -71,7 +71,13 @@ class FKioskPlugin : FlutterPlugin, ActivityAware {
 
     private fun setupKioskHandler(activity: Activity) {
         val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val adminComponent = AdminReceiver.getComponentName(activity)
+        // Use the actual active admin for this package, not the fkiosk stub receiver.
+        // When the app registers its own DeviceAdminReceiver (e.g. CppcfbDeviceAdminReceiver)
+        // and sets it as device owner, setLockTaskPackages/setLockTaskFeatures require that
+        // exact component — passing AdminReceiver would throw a SecurityException.
+        val adminComponent = dpm.activeAdmins
+            ?.firstOrNull { it.packageName == activity.packageName }
+            ?: AdminReceiver.getComponentName(activity)
 
         if (kioskModeHandler == null) {
             kioskModeHandler = KioskModeHandler(activity, dpm, adminComponent)

@@ -2,11 +2,14 @@ package ao.gabrielvieira.fkiosk.kiosk
 
 import android.app.Activity
 import android.app.ActivityManager
+import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
+import android.os.UserManager
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -101,6 +104,54 @@ class KioskModeHandler(
                 result.success(null)
             }
 
+            "uninstallApp" -> {
+                val packageName = call.argument<String>("packageName") ?: run {
+                    result.error("INVALID_ARGS", "packageName required", null)
+                    return
+                }
+                uninstallApp(packageName, result)
+            }
+
+            "setAppHidden" -> {
+                val packageName = call.argument<String>("packageName") ?: run {
+                    result.error("INVALID_ARGS", "packageName required", null)
+                    return
+                }
+                val hidden = call.argument<Boolean>("hidden") ?: true
+                try {
+                    if (!dpm.isDeviceOwnerApp(currentActivity!!.packageName)) {
+                        result.error("NOT_DEVICE_OWNER", "App is not Device Owner", null)
+                        return
+                    }
+                    val success = dpm.setApplicationHidden(adminComponent, packageName, hidden)
+                    result.success(success)
+                } catch (e: Exception) {
+                    result.error("APP_HIDDEN_ERROR", e.message, null)
+                }
+            }
+
+            "wipeData" -> {
+                try {
+                    wipeData()
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("WIPE_ERROR", e.message, null)
+                }
+            }
+
+            "clearDeviceOwner" -> {
+                try {
+                    if (!dpm.isDeviceOwnerApp(currentActivity!!.packageName)) {
+                        result.error("NOT_DEVICE_OWNER", "App is not Device Owner", null)
+                        return
+                    }
+                    dpm.clearDeviceOwnerApp(currentActivity.packageName)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("CLEAR_OWNER_ERROR", e.message, null)
+                }
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -140,6 +191,16 @@ class KioskModeHandler(
 
     private fun disableKiosk() {
         activity?.stopLockTask()
+        // Re-enable ADB and unknown-source installs when kiosk is turned off
+        // so the device owner can update or debug the device again.
+        if (dpm.isDeviceOwnerApp(activity?.packageName ?: "")) {
+            runCatching {
+                dpm.clearUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES)
+            }
+            runCatching {
+                dpm.clearUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
+            }
+        }
         eventSink?.success(false)
     }
 
@@ -154,15 +215,71 @@ class KioskModeHandler(
         if (!dpm.isDeviceOwnerApp(activity!!.packageName)) {
             throw IllegalStateException("App is not Device Owner")
         }
-        try {
-            Runtime.getRuntime().exec(arrayOf("/system/bin/reboot", "-p"))
-        } catch (e: Exception) {
+        val commandExitCode = runCatching {
+            val process = Runtime.getRuntime().exec(arrayOf("/system/bin/reboot", "-p"))
+            val exitCode = process.waitFor()
+            // Best-effort cleanup; avoid leaking file descriptors.
+            runCatching { process.inputStream.close() }
+            runCatching { process.errorStream.close() }
+            runCatching { process.outputStream.close() }
+            exitCode
+        }.getOrNull()
+
+        if (commandExitCode == 0) return
+
+        val fallbackError = runCatching {
             val intent = Intent("com.android.internal.intent.action.REQUEST_SHUTDOWN").apply {
                 putExtra("android.intent.extra.KEY_CONFIRM", false)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             activity!!.startActivity(intent)
+        }.exceptionOrNull()
+
+        val cmdMsg = when (commandExitCode) {
+            null -> "exec(/system/bin/reboot -p) failed"
+            else -> "exec(/system/bin/reboot -p) exited with code=$commandExitCode"
         }
+        val fbMsg = fallbackError?.let { "fallback intent failed: ${it::class.java.simpleName}: ${it.message}" }
+            ?: "fallback intent started but device did not shutdown (likely blocked by system permissions)"
+
+        throw IllegalStateException("$cmdMsg; $fbMsg")
+    }
+
+    private fun uninstallApp(packageName: String, result: MethodChannel.Result) {
+        val ctx = activity ?: run {
+            result.error("NO_ACTIVITY", "Activity not available", null)
+            return
+        }
+        if (!dpm.isDeviceOwnerApp(ctx.packageName)) {
+            result.error("NOT_DEVICE_OWNER", "App is not Device Owner", null)
+            return
+        }
+        val intent = Intent("ao.gabrielvieira.fkiosk.UNINSTALL_COMPLETE").apply {
+            setPackage(ctx.packageName)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            ctx, packageName.hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        try {
+            ctx.packageManager.packageInstaller.uninstall(packageName, pendingIntent.intentSender)
+            result.success(null)
+        } catch (e: Exception) {
+            result.error("UNINSTALL_ERROR", e.message, null)
+        }
+    }
+
+    private fun wipeData() {
+        if (!dpm.isDeviceOwnerApp(activity!!.packageName)) {
+            throw IllegalStateException("App is not Device Owner")
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            DevicePolicyManager.WIPE_SILENTLY
+        } else {
+            0
+        }
+        @Suppress("DEPRECATION")
+        dpm.wipeData(flags)
     }
 
     private fun setFeatures(featureValues: List<Int>) {
