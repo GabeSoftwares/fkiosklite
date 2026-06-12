@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.os.Build
 import java.io.File
 
 class PackageInstallerHelper(private val context: Context) {
@@ -14,6 +15,9 @@ class PackageInstallerHelper(private val context: Context) {
             PackageInstaller.SessionParams.MODE_FULL_INSTALL
         )
         params.setAppPackageName(context.packageName)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        }
 
         val sessionId = packageInstaller.createSession(params)
         val session = packageInstaller.openSession(sessionId)
