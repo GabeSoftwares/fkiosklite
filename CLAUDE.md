@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`fkiosk` is a Flutter plugin (Android-only) exposing two features for Android Enterprise COSU deployments:
+`fkiosklite` is a Flutter plugin (Android-only) exposing two features for Android Enterprise COSU deployments:
 
 1. **Kiosk Mode** — Lock Task Mode via `DevicePolicyManager`, requires Device Owner.
 2. **Silent APK Updates** — Background install via `PackageInstaller`, progress reported through streams.
 
-Min SDK is Android 11 (API 30). Package is `ao.gabrielvieira.fkiosk`, plugin class `FKioskPlugin`.
+Min SDK is Android 8.1 (API 27). Package is `ao.gabrielvieira.fkiosklite`, plugin class `FKioskLitePlugin`.
+
+Fine-grained Lock Task feature customization (`setKioskFeatures`, and the `showStatusBar`/`showNotifications`/`enableHomeButton`/`enableOverviewButton`/`enablePowerButton` toggles on `KioskConfig`) requires `DevicePolicyManager.setLockTaskFeatures()`, which only exists from API 28 (Android 9) onward. Below that, `enableKioskMode`/`setKioskFeatures` still succeed — Lock Task Mode activates — but the toggles are silently ignored and the OS falls back to its default full lockdown (no status bar, no notifications, no home/recents). Same story for `PackageInfo.getLongVersionCode()` (API 28+), guarded with a `versionCode` fallback in `SilentUpdateHandler.getVersionInfo()`. Both guards follow the existing `Build.VERSION.SDK_INT` pattern already used for `wipeData()` (API 28) and `PackageInstaller.SessionParams.setRequireUserAction()` (API 31) — replicate that pattern for any new API-gated call.
 
 See `ARCHITECTURE.md` for the full Android Enterprise design doc (platform channels, DPC setup, provisioning flows, API reference).
 
@@ -32,18 +34,18 @@ There is no Android unit test suite — native Kotlin code is exercised only thr
 
 ### Dart ↔ Kotlin wiring
 
-`FKioskPlugin.kt` registers four channels on attach:
+`FKioskLitePlugin.kt` registers four channels on attach:
 
-- `ao.gabrielvieira.fkiosk/kiosk_mode` (MethodChannel) → `KioskModeHandler`
-- `ao.gabrielvieira.fkiosk/kiosk_mode_events` (EventChannel) → `KioskModeHandler` (also implements `StreamHandler`)
-- `ao.gabrielvieira.fkiosk/silent_update` (MethodChannel) → `SilentUpdateHandler`
-- `ao.gabrielvieira.fkiosk/update_events` (EventChannel) → `UpdateEventEmitter` (singleton)
+- `ao.gabrielvieira.fkiosklite/kiosk_mode` (MethodChannel) → `KioskModeHandler`
+- `ao.gabrielvieira.fkiosklite/kiosk_mode_events` (EventChannel) → `KioskModeHandler` (also implements `StreamHandler`)
+- `ao.gabrielvieira.fkiosklite/silent_update` (MethodChannel) → `SilentUpdateHandler`
+- `ao.gabrielvieira.fkiosklite/update_events` (EventChannel) → `UpdateEventEmitter` (singleton)
 
 The kiosk handler is **ActivityAware** — it is only wired up inside `onAttachedToActivity` because `startLockTask`/`stopLockTask` need an `Activity`. The update handler only needs `Context` and is wired in `onAttachedToEngine`. When working on kiosk features, remember the handler can briefly have a null activity during config changes (`setActivity(null)` is called in the detached callbacks).
 
-### Kotlin package layout (`android/src/main/kotlin/ao/gabrielvieira/fkiosk/`)
+### Kotlin package layout (`android/src/main/kotlin/ao/gabrielvieira/fkiosklite/`)
 
-- `FKioskPlugin.kt` — channel registration and lifecycle only; no business logic.
+- `FKioskLitePlugin.kt` — channel registration and lifecycle only; no business logic.
 - `kiosk/` — `KioskModeHandler` (MethodChannel + StreamHandler), `KioskActivity` (declared with `android:lockTaskMode="if_whitelisted"`), `LockTaskFeatures` (bitflag helpers mapping `KioskConfig` → `DevicePolicyManager.LOCK_TASK_FEATURE_*`).
 - `update/` — `SilentUpdateHandler` (MethodChannel), `PackageInstallerHelper` (session create/write/commit), `UpdateReceiver` (BroadcastReceiver for `ACTION_INSTALL_STATUS` / `ACTION_UNINSTALL_STATUS`), `UpdateEventEmitter` (singleton `StreamHandler` — receiver posts status events through it).
 - `dpc/` — `AdminReceiver` (extends `DeviceAdminReceiver`, declared in manifest with `BIND_DEVICE_ADMIN`) and `DevicePolicyHelper`. `AdminReceiver.getComponentName(context)` is the canonical way to get the admin `ComponentName`; use it rather than constructing one by hand.
@@ -51,11 +53,11 @@ The kiosk handler is **ActivityAware** — it is only wired up inside `onAttache
 
 ### Dart layer (`lib/src/`)
 
-`fkiosk.dart` is a barrel that re-exports the two plugin classes and the three models (`KioskConfig`, `UpdateStatus`, `DeviceInfo`). Consumers should import `package:fkiosk/fkiosk.dart` only. The two plugin classes (`KioskModePlugin`, `SilentUpdatePlugin`) are thin MethodChannel wrappers — keep business logic on the Kotlin side.
+`fkiosklite.dart` is a barrel that re-exports the two plugin classes and the three models (`KioskConfig`, `UpdateStatus`, `DeviceInfo`). Consumers should import `package:fkiosklite/fkiosklite.dart` only. The two plugin classes (`KioskModePlugin`, `SilentUpdatePlugin`) are thin MethodChannel wrappers — keep business logic on the Kotlin side.
 
 ### Channel naming
 
-All channel names are literal strings duplicated in Dart and Kotlin. If you rename a channel, grep for the exact string (e.g. `ao.gabrielvieira.fkiosk/silent_update`) and update both sides plus any tests that mock it.
+All channel names are literal strings duplicated in Dart and Kotlin. If you rename a channel, grep for the exact string (e.g. `ao.gabrielvieira.fkiosklite/silent_update`) and update both sides plus any tests that mock it.
 
 ## Conventions
 

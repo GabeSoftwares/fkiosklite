@@ -1,1 +1,1 @@
-rootProject.name = 'fkiosk'
+rootProject.name = 'fkiosklite'

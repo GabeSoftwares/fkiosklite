@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.kiosk
+package ao.gabrielvieira.fkiosklite.kiosk
 
 import android.app.admin.DevicePolicyManager
 

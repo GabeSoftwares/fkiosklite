@@ -1,4 +1,4 @@
-# fkiosk
+# fkiosklite
 
 A Flutter plugin for **Android Enterprise** kiosk deployments. Exposes Lock Task Mode and silent APK install/update for COSU (Corporate Owned, Single Use) devices where the app is the Device Owner.
 
@@ -20,15 +20,15 @@ A Flutter plugin for **Android Enterprise** kiosk deployments. Exposes Lock Task
 
 ```yaml
 dependencies:
-  fkiosk:
+  fkiosklite:
     git:
-      url: https://github.com/gabrielvieira/fkiosk.git
+      url: https://github.com/gabrielvieira/fkiosklite.git
 ```
 
 Then:
 
 ```dart
-import 'package:fkiosk/fkiosk.dart';
+import 'package:fkiosklite/fkiosklite.dart';
 ```
 
 ## Kiosk Mode

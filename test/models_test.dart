@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fkiosk/fkiosk.dart';
+import 'package:fkiosklite/fkiosklite.dart';
 
 void main() {
   group('KioskConfig', () {
@@ -176,7 +176,7 @@ void main() {
       const original = DeviceInfo(
         isDeviceOwner: true,
         isInKioskMode: true,
-        packageName: 'ao.gabrielvieira.fkiosk',
+        packageName: 'ao.gabrielvieira.fkiosklite',
         versionName: '2.0.0',
         versionCode: 5,
         androidSdkVersion: 34,

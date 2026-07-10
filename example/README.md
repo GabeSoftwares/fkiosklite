@@ -1,6 +1,6 @@
-# fkiosk_example
+# fkiosklite_example
 
-Demonstrates how to use the fkiosk plugin.
+Demonstrates how to use the fkiosklite plugin.
 
 ## Getting Started
 

@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.update
+package ao.gabrielvieira.fkiosklite.update
 
 import android.os.Handler
 import android.os.Looper

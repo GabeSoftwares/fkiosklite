@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fkiosk/fkiosk.dart';
+import 'package:fkiosklite/fkiosklite.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('ao.gabrielvieira.fkiosk/silent_update');
+  const channel = MethodChannel('ao.gabrielvieira.fkiosklite/silent_update');
   final plugin = SilentUpdatePlugin();
   final log = <MethodCall>[];
 

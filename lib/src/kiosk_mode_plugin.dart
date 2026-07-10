@@ -4,7 +4,7 @@ import 'models/kiosk_config.dart';
 
 /// Controls Android Lock Task (Kiosk) Mode.
 class KioskModePlugin {
-  static const _channel = MethodChannel('ao.gabrielvieira.fkiosk/kiosk_mode');
+  static const _channel = MethodChannel('ao.gabrielvieira.fkiosklite/kiosk_mode');
 
   /// Check if the app is currently the Device Owner.
   Future<bool> isDeviceOwner() async {
@@ -88,7 +88,7 @@ class KioskModePlugin {
 
   /// Stream of kiosk mode state changes.
   Stream<bool> get onKioskModeChanged {
-    return const EventChannel('ao.gabrielvieira.fkiosk/kiosk_mode_events')
+    return const EventChannel('ao.gabrielvieira.fkiosklite/kiosk_mode_events')
         .receiveBroadcastStream()
         .map((event) => event as bool);
   }

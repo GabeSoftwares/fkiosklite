@@ -1,4 +1,4 @@
-group = "ao.gabrielvieira.fkiosk"
+group = "ao.gabrielvieira.fkiosklite"
 version = "1.0-SNAPSHOT"
 
 buildscript {
@@ -27,7 +27,7 @@ plugins {
 }
 
 android {
-    namespace = "ao.gabrielvieira.fkiosk"
+    namespace = "ao.gabrielvieira.fkiosklite"
 
     compileSdk = 34
 
@@ -50,7 +50,7 @@ android {
     }
 
     defaultConfig {
-        minSdk = 30
+        minSdk = 27
         targetSdk = 34
     }
 

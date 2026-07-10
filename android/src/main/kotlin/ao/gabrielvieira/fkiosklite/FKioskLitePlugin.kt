@@ -1,19 +1,19 @@
-package ao.gabrielvieira.fkiosk
+package ao.gabrielvieira.fkiosklite
 
 import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.Context
-import ao.gabrielvieira.fkiosk.dpc.AdminReceiver
-import ao.gabrielvieira.fkiosk.kiosk.KioskModeHandler
-import ao.gabrielvieira.fkiosk.update.SilentUpdateHandler
-import ao.gabrielvieira.fkiosk.update.UpdateEventEmitter
+import ao.gabrielvieira.fkiosklite.dpc.AdminReceiver
+import ao.gabrielvieira.fkiosklite.kiosk.KioskModeHandler
+import ao.gabrielvieira.fkiosklite.update.SilentUpdateHandler
+import ao.gabrielvieira.fkiosklite.update.UpdateEventEmitter
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
-class FKioskPlugin : FlutterPlugin, ActivityAware {
+class FKioskLitePlugin : FlutterPlugin, ActivityAware {
 
     private lateinit var kioskMethodChannel: MethodChannel
     private lateinit var kioskEventChannel: EventChannel
@@ -28,10 +28,10 @@ class FKioskPlugin : FlutterPlugin, ActivityAware {
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         applicationContext = binding.applicationContext
 
-        kioskMethodChannel = MethodChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosk/kiosk_mode")
-        kioskEventChannel = EventChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosk/kiosk_mode_events")
-        updateMethodChannel = MethodChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosk/silent_update")
-        updateEventChannel = EventChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosk/update_events")
+        kioskMethodChannel = MethodChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosklite/kiosk_mode")
+        kioskEventChannel = EventChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosklite/kiosk_mode_events")
+        updateMethodChannel = MethodChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosklite/silent_update")
+        updateEventChannel = EventChannel(binding.binaryMessenger, "ao.gabrielvieira.fkiosklite/update_events")
 
         // Update handler can work with just context
         val context = binding.applicationContext
@@ -71,7 +71,7 @@ class FKioskPlugin : FlutterPlugin, ActivityAware {
 
     private fun setupKioskHandler(activity: Activity) {
         val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        // Use the actual active admin for this package, not the fkiosk stub receiver.
+        // Use the actual active admin for this package, not the fkiosklite stub receiver.
         // When the app registers its own DeviceAdminReceiver (e.g. CppcfbDeviceAdminReceiver)
         // and sets it as device owner, setLockTaskPackages/setLockTaskFeatures require that
         // exact component — passing AdminReceiver would throw a SecurityException.

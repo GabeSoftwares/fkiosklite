@@ -4,8 +4,8 @@ import 'models/update_status.dart';
 
 /// Manages silent (background) app updates on Device Owner managed devices.
 class SilentUpdatePlugin {
-  static const _channel = MethodChannel('ao.gabrielvieira.fkiosk/silent_update');
-  static const _eventChannel = EventChannel('ao.gabrielvieira.fkiosk/update_events');
+  static const _channel = MethodChannel('ao.gabrielvieira.fkiosklite/silent_update');
+  static const _eventChannel = EventChannel('ao.gabrielvieira.fkiosklite/update_events');
 
   /// Check if silent install is available (requires Device Owner).
   Future<bool> canSilentInstall() async {

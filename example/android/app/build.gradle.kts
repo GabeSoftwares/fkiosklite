@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "ao.gabrielvieira.fkiosk_example"
+    namespace = "ao.gabrielvieira.fkiosklite_example"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,10 +21,10 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "ao.gabrielvieira.fkiosk_example"
+        applicationId = "ao.gabrielvieira.fkiosklite_example"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 30
+        minSdk = 27
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

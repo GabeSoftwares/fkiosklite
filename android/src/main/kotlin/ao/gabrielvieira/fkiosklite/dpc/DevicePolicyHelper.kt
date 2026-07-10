@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.dpc
+package ao.gabrielvieira.fkiosklite.dpc
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName

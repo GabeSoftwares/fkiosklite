@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.boot
+package ao.gabrielvieira.fkiosklite.boot
 
 import android.content.BroadcastReceiver
 import android.content.Context

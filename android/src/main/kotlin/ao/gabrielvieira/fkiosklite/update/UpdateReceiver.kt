@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.update
+package ao.gabrielvieira.fkiosklite.update
 
 import android.content.BroadcastReceiver
 import android.content.Context

@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.kiosk
+package ao.gabrielvieira.fkiosklite.kiosk
 
 import android.app.Activity
 import android.app.ActivityManager
@@ -159,7 +159,7 @@ class KioskModeHandler(
     private fun setAutoStart(context: Context, enabled: Boolean) {
         val component = ComponentName(
             context.packageName,
-            "ao.gabrielvieira.fkiosk.boot.BootReceiver"
+            "ao.gabrielvieira.fkiosklite.boot.BootReceiver"
         )
         context.packageManager.setComponentEnabledSetting(
             component,
@@ -183,7 +183,12 @@ class KioskModeHandler(
         if (additional != null) packages.addAll(additional)
 
         dpm.setLockTaskPackages(adminComponent, packages.toTypedArray())
-        dpm.setLockTaskFeatures(adminComponent, LockTaskFeatures.fromConfig(config))
+        // setLockTaskFeatures() was added in API 28 (Android 9). Below that,
+        // Lock Task Mode still works but is all-or-nothing (no customization
+        // API exists), so the fine-grained toggles are silently ignored.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            dpm.setLockTaskFeatures(adminComponent, LockTaskFeatures.fromConfig(config))
+        }
 
         currentActivity.startLockTask()
         eventSink?.success(true)
@@ -254,7 +259,7 @@ class KioskModeHandler(
             result.error("NOT_DEVICE_OWNER", "App is not Device Owner", null)
             return
         }
-        val intent = Intent("ao.gabrielvieira.fkiosk.UNINSTALL_COMPLETE").apply {
+        val intent = Intent("ao.gabrielvieira.fkiosklite.UNINSTALL_COMPLETE").apply {
             setPackage(ctx.packageName)
         }
         val pendingIntent = PendingIntent.getBroadcast(
@@ -283,7 +288,9 @@ class KioskModeHandler(
     }
 
     private fun setFeatures(featureValues: List<Int>) {
-        dpm.setLockTaskFeatures(adminComponent, LockTaskFeatures.combinedFlags(featureValues))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            dpm.setLockTaskFeatures(adminComponent, LockTaskFeatures.combinedFlags(featureValues))
+        }
     }
 
     // EventChannel.StreamHandler

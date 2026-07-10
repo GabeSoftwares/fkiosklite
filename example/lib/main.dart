@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:fkiosk/fkiosk.dart';
+import 'package:fkiosklite/fkiosklite.dart';
 
 void main() {
   runApp(const MyApp());
@@ -90,7 +90,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('fkiosk Example')),
+        appBar: AppBar(title: const Text('fkiosklite Example')),
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

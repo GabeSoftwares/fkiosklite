@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fkiosk/fkiosk.dart';
+import 'package:fkiosklite/fkiosklite.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('ao.gabrielvieira.fkiosk/kiosk_mode');
+  const channel = MethodChannel('ao.gabrielvieira.fkiosklite/kiosk_mode');
   final plugin = KioskModePlugin();
   final log = <MethodCall>[];
 

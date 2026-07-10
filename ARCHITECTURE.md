@@ -33,14 +33,19 @@ This document describes the technical architecture for two Flutter plugins that 
 
 ### Target Devices
 
-- **Minimum: Android 11 (API 30)**
-- Android 11+ is required to leverage the full kiosk security model:
-  - Users cannot force-stop or clear app data in kiosk mode.
-  - All `setLockTaskFeatures()` customization APIs available (introduced in API 28).
-  - Scoped storage enforced - better filesystem security.
-  - Package visibility restrictions - kiosk app cannot be probed.
-  - More reliable `PackageInstaller` sessions for silent updates.
-- Dropping API 23-29 is acceptable because kiosk hardware is company-owned and controlled.
+- **Minimum: Android 8.1 (API 27)**
+- Below Android 9 (API 28), Lock Task Mode still activates via
+  `setLockTaskPackages()` + `startLockTask()`, but it is all-or-nothing:
+  `setLockTaskFeatures()` doesn't exist yet, so the fine-grained toggles
+  (status bar, notifications, home, overview, power button) are silently
+  ignored and the OS falls back to full lockdown — the safest default.
+- Android 9+ (API 28+) unlocks the full customizable kiosk security model:
+  - All `setLockTaskFeatures()` customization APIs available.
+  - `PackageInfo.getLongVersionCode()` available (used with a fallback below
+    API 28).
+- Android 11+ additionally brings scoped storage enforcement and package
+  visibility restrictions, but neither is required for this plugin's
+  functionality.
 
 ---
 
@@ -140,7 +145,7 @@ Flutter plugins use **Platform Channels** to bridge Dart code with native Androi
 |   Dart (Flutter)   |          |  Kotlin (Android)  |
 |                   |          |                   |
 |  MethodChannel    |  <---->  |  MethodChannel    |
-|  'ao.gabrielvieira.fkiosk/     |  Binary  |  Handler          |
+|  'ao.gabrielvieira.fkiosklite/     |  Binary  |  Handler          |
 |   kiosk_mode'     |  Codec   |                   |
 +-------------------+          +-------------------+
 ```
@@ -148,9 +153,9 @@ Flutter plugins use **Platform Channels** to bridge Dart code with native Androi
 ### Plugin Project Structure
 
 ```
-fkiosk/
+fkiosklite/
 ├── lib/
-│   ├── fkiosk.dart                          # Public API barrel file
+│   ├── fkiosklite.dart                      # Public API barrel file
 │   ├── src/
 │   │   ├── kiosk_mode_plugin.dart           # Dart API for kiosk mode
 │   │   ├── silent_update_plugin.dart        # Dart API for silent updates
@@ -161,8 +166,8 @@ fkiosk/
 ├── android/
 │   ├── src/main/
 │   │   ├── AndroidManifest.xml
-│   │   ├── kotlin/com/fkiosk/
-│   │   │   ├── FKioskPlugin.kt             # Plugin registration
+│   │   ├── kotlin/com/fkiosklite/
+│   │   │   ├── FKioskLitePlugin.kt             # Plugin registration
 │   │   │   ├── kiosk/
 │   │   │   │   ├── KioskModeHandler.kt     # Kiosk MethodChannel handler
 │   │   │   │   ├── KioskActivity.kt        # Lock Task Activity
@@ -192,7 +197,7 @@ fkiosk/
 ```dart
 /// Controls Android Lock Task (Kiosk) Mode.
 class KioskModePlugin {
-  static const _channel = MethodChannel('ao.gabrielvieira.fkiosk/kiosk_mode');
+  static const _channel = MethodChannel('ao.gabrielvieira.fkiosklite/kiosk_mode');
 
   /// Check if the app is currently the Device Owner.
   Future<bool> isDeviceOwner() async {
@@ -230,7 +235,7 @@ class KioskModePlugin {
 
   /// Stream of kiosk mode state changes.
   Stream<bool> get onKioskModeChanged {
-    return const EventChannel('ao.gabrielvieira.fkiosk/kiosk_mode_events')
+    return const EventChannel('ao.gabrielvieira.fkiosklite/kiosk_mode_events')
         .receiveBroadcastStream()
         .map((event) => event as bool);
   }
@@ -427,7 +432,7 @@ class KioskModeHandler(
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="ao.gabrielvieira.fkiosk">
+    package="ao.gabrielvieira.fkiosklite">
 
     <application>
         <!-- Device Admin Receiver -->
@@ -515,8 +520,8 @@ class KioskModeHandler(
 ```dart
 /// Manages silent (background) app updates on Device Owner managed devices.
 class SilentUpdatePlugin {
-  static const _channel = MethodChannel('ao.gabrielvieira.fkiosk/silent_update');
-  static const _eventChannel = EventChannel('ao.gabrielvieira.fkiosk/update_events');
+  static const _channel = MethodChannel('ao.gabrielvieira.fkiosklite/silent_update');
+  static const _eventChannel = EventChannel('ao.gabrielvieira.fkiosklite/update_events');
 
   /// Check if silent install is available (requires Device Owner).
   Future<bool> canSilentInstall() async {
@@ -689,9 +694,9 @@ class PackageInstallerHelper(private val context: Context) {
 
     companion object {
         const val ACTION_INSTALL_STATUS =
-            "ao.gabrielvieira.fkiosk.ACTION_INSTALL_STATUS"
+            "ao.gabrielvieira.fkiosklite.ACTION_INSTALL_STATUS"
         const val ACTION_UNINSTALL_STATUS =
-            "ao.gabrielvieira.fkiosk.ACTION_UNINSTALL_STATUS"
+            "ao.gabrielvieira.fkiosklite.ACTION_UNINSTALL_STATUS"
         const val EXTRA_SESSION_ID = "session_id"
     }
 }
@@ -825,7 +830,7 @@ Backend Server          Device (DPC)           PackageInstaller        Flutter A
 ```json
 {
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME":
-    "ao.gabrielvieira.fkiosk/.dpc.AdminReceiver",
+    "ao.gabrielvieira.fkiosklite/.dpc.AdminReceiver",
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION":
     "https://your-server.com/dpc.apk",
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM":
@@ -845,7 +850,7 @@ Backend Server          Device (DPC)           PackageInstaller        Flutter A
 adb install -r app-release.apk
 
 # 2. Set as Device Owner (device must have no accounts)
-adb shell dpm set-device-owner ao.gabrielvieira.fkiosk/.dpc.AdminReceiver
+adb shell dpm set-device-owner ao.gabrielvieira.fkiosklite/.dpc.AdminReceiver
 
 # 3. Verify
 adb shell dumpsys device_policy | grep "Device Owner"
@@ -886,7 +891,7 @@ PATCH  /v1/enterprises/{id}/devices/{deviceId}       # Apply policy to device
   "name": "enterprises/LC0xxx/policies/kiosk-policy",
   "applications": [
     {
-      "packageName": "ao.gabrielvieira.fkiosk.app",
+      "packageName": "ao.gabrielvieira.fkiosklite.app",
       "installType": "KIOSK",
       "autoUpdateMode": "AUTO_UPDATE_HIGH_PRIORITY",
       "defaultPermissionPolicy": "GRANT"
@@ -903,7 +908,7 @@ PATCH  /v1/enterprises/{id}/devices/{deviceId}       # Apply policy to device
   "keyguardDisabled": true,
   "persistentPreferredActivities": [
     {
-      "receiverActivity": "ao.gabrielvieira.fkiosk.app/.MainActivity",
+      "receiverActivity": "ao.gabrielvieira.fkiosklite.app/.MainActivity",
       "actions": ["android.intent.action.MAIN"],
       "categories": ["android.intent.category.HOME", "android.intent.category.DEFAULT"]
     }
@@ -1084,7 +1089,7 @@ jobs:
 
 ## API Reference
 
-### Kiosk Mode Plugin - Method Channel: `ao.gabrielvieira.fkiosk/kiosk_mode`
+### Kiosk Mode Plugin - Method Channel: `ao.gabrielvieira.fkiosklite/kiosk_mode`
 
 | Method | Arguments | Returns | Description |
 |---|---|---|---|
@@ -1094,7 +1099,7 @@ jobs:
 | `disableKioskMode` | none | `void` | Stop Lock Task Mode |
 | `setKioskFeatures` | `List<int>` (feature flags) | `void` | Configure kiosk UI features |
 
-### Silent Update Plugin - Method Channel: `ao.gabrielvieira.fkiosk/silent_update`
+### Silent Update Plugin - Method Channel: `ao.gabrielvieira.fkiosklite/silent_update`
 
 | Method | Arguments | Returns | Description |
 |---|---|---|---|
@@ -1109,8 +1114,8 @@ jobs:
 
 | Channel | Event Type | Description |
 |---|---|---|
-| `ao.gabrielvieira.fkiosk/kiosk_mode_events` | `bool` | Kiosk mode state changes |
-| `ao.gabrielvieira.fkiosk/update_events` | `UpdateStatus` map | Install progress & status |
+| `ao.gabrielvieira.fkiosklite/kiosk_mode_events` | `bool` | Kiosk mode state changes |
+| `ao.gabrielvieira.fkiosklite/update_events` | `UpdateStatus` map | Install progress & status |
 
 ---
 
@@ -1124,23 +1129,23 @@ jobs:
 <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<!-- WRITE_EXTERNAL_STORAGE not needed: minSdk 30 uses scoped storage -->
+<!-- WRITE_EXTERNAL_STORAGE not needed: the plugin only writes to app-private cache/files dirs -->
 ```
 
 ### Useful ADB Commands for Development
 
 ```bash
 # Set Device Owner
-adb shell dpm set-device-owner ao.gabrielvieira.fkiosk/.dpc.AdminReceiver
+adb shell dpm set-device-owner ao.gabrielvieira.fkiosklite/.dpc.AdminReceiver
 
 # Remove Device Owner (requires app cooperation)
-adb shell dpm remove-active-admin ao.gabrielvieira.fkiosk/.dpc.AdminReceiver
+adb shell dpm remove-active-admin ao.gabrielvieira.fkiosklite/.dpc.AdminReceiver
 
 # Check current Device Owner
 adb shell dumpsys device_policy
 
 # Force stop kiosk app (for debugging only)
-adb shell am force-stop ao.gabrielvieira.fkiosk
+adb shell am force-stop ao.gabrielvieira.fkiosklite
 
 # List Lock Task packages
 adb shell dumpsys activity | grep "mLockTaskPackages"
@@ -1153,7 +1158,7 @@ adb shell dumpsys activity | grep "mLockTaskMode"
 
 ```yaml
 # pubspec.yaml
-name: fkiosk
+name: fkiosklite
 description: Flutter plugins for Android Enterprise kiosk mode and silent updates.
 
 environment:
@@ -1173,8 +1178,8 @@ flutter:
   plugin:
     platforms:
       android:
-        package: ao.gabrielvieira.fkiosk
-        pluginClass: FKioskPlugin
+        package: ao.gabrielvieira.fkiosklite
+        pluginClass: FKioskLitePlugin
 ```
 
 ```kotlin
@@ -1182,7 +1187,7 @@ flutter:
 android {
     compileSdk = 34
     defaultConfig {
-        minSdk = 30  // Android 11+ required for full kiosk security
+        minSdk = 27  // Android 8.1+; fine-grained kiosk feature toggles need API 28+
         targetSdk = 34
     }
 }

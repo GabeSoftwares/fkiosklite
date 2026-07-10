@@ -1,4 +1,4 @@
-package ao.gabrielvieira.fkiosk.update
+package ao.gabrielvieira.fkiosklite.update
 
 import android.app.PendingIntent
 import android.content.Context
@@ -63,9 +63,9 @@ class PackageInstallerHelper(private val context: Context) {
 
     companion object {
         const val ACTION_INSTALL_STATUS =
-            "ao.gabrielvieira.fkiosk.ACTION_INSTALL_STATUS"
+            "ao.gabrielvieira.fkiosklite.ACTION_INSTALL_STATUS"
         const val ACTION_UNINSTALL_STATUS =
-            "ao.gabrielvieira.fkiosk.ACTION_UNINSTALL_STATUS"
+            "ao.gabrielvieira.fkiosklite.ACTION_UNINSTALL_STATUS"
         const val EXTRA_SESSION_ID = "session_id"
     }
 }
