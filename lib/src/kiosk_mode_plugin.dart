@@ -45,9 +45,28 @@ class KioskModePlugin {
     await _channel.invokeMethod('rebootDevice');
   }
 
-  /// Shut down the device. Requires Device Owner privileges.
+  /// Shut down the device.
+  ///
+  /// Unlike [rebootDevice], powering off is NOT guaranteed for a stock Device
+  /// Owner: Android exposes no `DevicePolicyManager` shutdown API, and SELinux
+  /// blocks writing `sys.powerctl` from an ordinary app. It only succeeds on
+  /// rooted hardware (a `su` binary is present) or when the app is a
+  /// system/priv-app holding `android.permission.SHUTDOWN`. On unsupported
+  /// devices this throws a [PlatformException] with an explanatory message.
+  ///
+  /// Use [canShutdown] to check availability beforehand, or prefer
+  /// [rebootDevice] where a full power-off is not strictly required.
   Future<void> shutdownDevice() async {
     await _channel.invokeMethod('shutdownDevice');
+  }
+
+  /// Best-effort check for whether [shutdownDevice] is likely to succeed.
+  ///
+  /// Returns `true` when a viable privilege path is detectable (root `su`
+  /// binary present, or the app holds `android.permission.SHUTDOWN`). It cannot
+  /// guarantee success. A stock Device Owner on retail hardware returns `false`.
+  Future<bool> canShutdown() async {
+    return await _channel.invokeMethod<bool>('canShutdown') ?? false;
   }
 
   /// Enable auto-start on boot. Requires Device Owner privileges.

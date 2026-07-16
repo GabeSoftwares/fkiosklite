@@ -1,27 +1,35 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fkiosklite_example/main.dart';
 
 void main() {
-  testWidgets('Verify Platform version', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('Renders the main sections and the audit log', (tester) async {
     await tester.pumpWidget(const MyApp());
 
-    // Verify that platform version is retrieved.
-    expect(
-      find.byWidgetPredicate(
-        (Widget widget) =>
-            widget is Text && widget.data!.startsWith('Running on:'),
-      ),
-      findsOneWidget,
+    expect(find.text('fkiosklite'), findsWidgets);
+    expect(find.text('Estado do dispositivo'), findsOneWidget);
+    expect(find.text('Kiosk Mode'), findsWidgets);
+
+    // O painel de auditoria está no fim da lista lazy; faz scroll até ele.
+    await tester.dragUntilVisible(
+      find.text('Registo de auditoria'),
+      find.byType(Scrollable).first,
+      const Offset(0, -300),
     );
+    expect(find.text('Registo de auditoria'), findsOneWidget);
+  });
+
+  testWidgets('Actions are disabled when not Device Owner', (tester) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pump();
+
+    expect(find.text('A app não é Device Owner. As ações MDM estão desativadas.'),
+        findsOneWidget);
+
+    final disabledButton = find.byWidgetPredicate(
+      (w) => w is ButtonStyleButton && w.onPressed == null,
+    );
+    expect(disabledButton, findsWidgets);
   });
 }

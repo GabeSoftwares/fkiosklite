@@ -19,9 +19,13 @@ void main() {
           return true;
         case 'isInKioskMode':
           return false;
+        case 'canShutdown':
+          return true;
         case 'enableKioskMode':
         case 'disableKioskMode':
         case 'setKioskFeatures':
+        case 'shutdownDevice':
+        case 'rebootDevice':
           return null;
         default:
           return null;
@@ -77,5 +81,21 @@ void main() {
     expect(log.last.method, 'setKioskFeatures');
     final args = log.last.arguments as List;
     expect(args, containsAll([1, 4]));
+  });
+
+  test('rebootDevice calls correct method', () async {
+    await plugin.rebootDevice();
+    expect(log.last.method, 'rebootDevice');
+  });
+
+  test('shutdownDevice calls correct method', () async {
+    await plugin.shutdownDevice();
+    expect(log.last.method, 'shutdownDevice');
+  });
+
+  test('canShutdown returns availability', () async {
+    final result = await plugin.canShutdown();
+    expect(result, true);
+    expect(log.last.method, 'canShutdown');
   });
 }

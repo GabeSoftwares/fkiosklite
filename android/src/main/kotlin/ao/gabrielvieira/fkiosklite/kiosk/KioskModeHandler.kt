@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.UserManager
+import java.io.File
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -92,6 +93,10 @@ class KioskModeHandler(
                 } catch (e: Exception) {
                     result.error("SHUTDOWN_ERROR", e.message, null)
                 }
+            }
+
+            "canShutdown" -> {
+                result.success(canShutdown())
             }
 
             "enableAutoStart" -> {
@@ -216,23 +221,46 @@ class KioskModeHandler(
         dpm.reboot(adminComponent)
     }
 
+    /**
+     * Attempts to power the device off.
+     *
+     * Unlike [rebootDevice] — which uses the public [DevicePolicyManager.reboot]
+     * API supported for any Device Owner since API 24 — the AOSP framework
+     * exposes NO public shutdown/power-off equivalent to Device Owner apps in
+     * any version (verified through Android 15). Powering off therefore requires
+     * one of two privilege paths this method tries in order:
+     *
+     *  1. Direct `/system/bin/reboot -p` — only works if the process is allowed
+     *     to write the `sys.powerctl` system property. A stock `untrusted_app`
+     *     Device Owner is blocked by SELinux, so this fails on retail devices.
+     *  2. `su -c "reboot -p"` — works on rooted kiosk/POS hardware where a `su`
+     *     binary is present.
+     *  3. `REQUEST_SHUTDOWN` intent — only works for a system-signed / priv-app
+     *     holding the signature|privileged `android.permission.SHUTDOWN`.
+     *
+     * If none succeed, an [IllegalStateException] is thrown with an actionable
+     * message stating that shutdown needs root or system-app privileges.
+     */
     private fun shutdownDevice() {
         if (!dpm.isDeviceOwnerApp(activity!!.packageName)) {
             throw IllegalStateException("App is not Device Owner")
         }
-        val commandExitCode = runCatching {
-            val process = Runtime.getRuntime().exec(arrayOf("/system/bin/reboot", "-p"))
-            val exitCode = process.waitFor()
-            // Best-effort cleanup; avoid leaking file descriptors.
-            runCatching { process.inputStream.close() }
-            runCatching { process.errorStream.close() }
-            runCatching { process.outputStream.close() }
-            exitCode
-        }.getOrNull()
 
-        if (commandExitCode == 0) return
+        // Attempt 1: direct property write via the reboot binary. Blocked by
+        // SELinux for a stock untrusted_app Device Owner, but succeeds on
+        // system/priv-app builds.
+        val directExitCode = execForExitCode(arrayOf("/system/bin/reboot", "-p"))
+        if (directExitCode == 0) return
 
-        val fallbackError = runCatching {
+        // Attempt 2: root shell. Common on dedicated POS/kiosk hardware that
+        // ships rooted. No-op on non-rooted retail devices (su absent).
+        val suExitCode = execForExitCode(arrayOf("su", "-c", "/system/bin/reboot -p"))
+        if (suExitCode == 0) return
+
+        // Attempt 3: privileged system shutdown intent. Requires the
+        // signature|privileged android.permission.SHUTDOWN, which Device Owner
+        // status alone does NOT grant.
+        val intentError = runCatching {
             val intent = Intent("com.android.internal.intent.action.REQUEST_SHUTDOWN").apply {
                 putExtra("android.intent.extra.KEY_CONFIRM", false)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -240,14 +268,72 @@ class KioskModeHandler(
             activity!!.startActivity(intent)
         }.exceptionOrNull()
 
-        val cmdMsg = when (commandExitCode) {
-            null -> "exec(/system/bin/reboot -p) failed"
-            else -> "exec(/system/bin/reboot -p) exited with code=$commandExitCode"
-        }
-        val fbMsg = fallbackError?.let { "fallback intent failed: ${it::class.java.simpleName}: ${it.message}" }
-            ?: "fallback intent started but device did not shutdown (likely blocked by system permissions)"
+        val directMsg = describeExit("/system/bin/reboot -p", directExitCode)
+        val suMsg = describeExit("su -c 'reboot -p'", suExitCode)
+        val intentMsg = intentError
+            ?.let { "REQUEST_SHUTDOWN intent rejected (${it::class.java.simpleName})" }
+            ?: "REQUEST_SHUTDOWN intent sent but the OS did not power off"
 
-        throw IllegalStateException("$cmdMsg; $fbMsg")
+        throw IllegalStateException(
+            "Unable to power off the device. On stock hardware, shutting down " +
+                "is not available to a Device Owner: unlike reboot, Android exposes " +
+                "no DevicePolicyManager shutdown API, and SELinux blocks writing " +
+                "sys.powerctl. Powering off requires either root (a 'su' binary) or " +
+                "the app to be a system/priv-app holding android.permission.SHUTDOWN. " +
+                "Use rebootDevice() where a full power-off is not strictly required. " +
+                "[$directMsg; $suMsg; $intentMsg]"
+        )
+    }
+
+    /**
+     * Runs [command], waits for it, closes its streams, and returns the exit
+     * code, or `null` if the process could not be spawned (e.g. binary absent).
+     */
+    private fun execForExitCode(command: Array<String>): Int? = runCatching {
+        val process = Runtime.getRuntime().exec(command)
+        val exitCode = process.waitFor()
+        // Best-effort cleanup; avoid leaking file descriptors.
+        runCatching { process.inputStream.close() }
+        runCatching { process.errorStream.close() }
+        runCatching { process.outputStream.close() }
+        exitCode
+    }.getOrNull()
+
+    private fun describeExit(command: String, exitCode: Int?): String = when (exitCode) {
+        null -> "$command could not be executed"
+        else -> "$command exited with code=$exitCode"
+    }
+
+    /**
+     * Best-effort check for whether [shutdownDevice] is likely to succeed.
+     *
+     * Mirrors [canSilentInstall] on the update plugin so integrators can gate
+     * the shutdown action in the UI instead of discovering the limitation via
+     * an exception. Returns `true` when either viable privilege path is
+     * detectable: a `su` binary on PATH (rooted hardware) or the app already
+     * holding the privileged SHUTDOWN permission (system/priv-app). It cannot
+     * guarantee success and does not detect the direct property-write path,
+     * which is unavailable to stock Device Owner apps anyway.
+     */
+    private fun canShutdown(): Boolean {
+        val hasShutdownPermission = activity?.let {
+            it.checkCallingOrSelfPermission("android.permission.SHUTDOWN") ==
+                PackageManager.PERMISSION_GRANTED
+        } ?: false
+        return hasShutdownPermission || isSuAvailable()
+    }
+
+    /** Heuristic root detection: looks for a `su` binary in the common paths. */
+    private fun isSuAvailable(): Boolean {
+        val candidates = listOf(
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/sbin/su",
+            "/su/bin/su",
+            "/vendor/bin/su",
+            "/system/sbin/su"
+        )
+        return candidates.any { runCatching { File(it).exists() }.getOrDefault(false) }
     }
 
     private fun uninstallApp(packageName: String, result: MethodChannel.Result) {

@@ -1098,6 +1098,39 @@ jobs:
 | `enableKioskMode` | `Map<String, dynamic>?` (KioskConfig) | `void` | Start Lock Task Mode |
 | `disableKioskMode` | none | `void` | Stop Lock Task Mode |
 | `setKioskFeatures` | `List<int>` (feature flags) | `void` | Configure kiosk UI features |
+| `rebootDevice` | none | `void` | Reboot via `DevicePolicyManager.reboot()` (always works for Device Owner, API 24+) |
+| `shutdownDevice` | none | `void` | Power off — **not guaranteed** for stock Device Owner (see note below) |
+| `canShutdown` | none | `bool` | Best-effort check for whether `shutdownDevice` can succeed |
+
+#### Shutdown limitation: reboot works, power-off does not (for stock Device Owner)
+
+`rebootDevice()` uses the public `DevicePolicyManager.reboot(ComponentName)` API,
+supported for any Device Owner since **API 24** — it is reliable everywhere.
+
+There is **no equivalent power-off API**. AOSP has never exposed a
+`DevicePolicyManager.shutdown()` (verified through Android 15), and being Device
+Owner does not lift the OS-level barriers to powering off:
+
+- Writing the `sys.powerctl` system property directly
+  (`/system/bin/reboot -p`) is blocked by **SELinux** for a stock
+  `untrusted_app` process — it fails with `avc: denied { write } ...
+  property_service` regardless of Device Owner status.
+- The `com.android.internal.intent.action.REQUEST_SHUTDOWN` intent requires
+  `android.permission.SHUTDOWN`, a `signature|privileged` permission granted
+  **only** to platform-signed or allowlisted priv-apps — again, Device Owner
+  status does not grant it.
+
+`shutdownDevice()` therefore tries three privilege paths in order and only
+succeeds if one applies:
+
+1. `/system/bin/reboot -p` — direct property write (system/priv-app builds only).
+2. `su -c "reboot -p"` — root shell (rooted POS/kiosk hardware only).
+3. `REQUEST_SHUTDOWN` intent — requires `android.permission.SHUTDOWN`.
+
+On a **non-rooted retail device** where the app is only Device Owner (not a
+system/priv-app), all three fail and `shutdownDevice()` throws with an
+actionable message. Integrators should call `canShutdown()` first to gate the UI,
+or prefer `rebootDevice()` where a full power-off is not strictly required.
 
 ### Silent Update Plugin - Method Channel: `ao.gabrielvieira.fkiosklite/silent_update`
 
